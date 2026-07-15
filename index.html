@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phantasie — Cinematographer / Web Developer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --black:#08070609;
+    --bg:#0a0908;
+    --panel:#131110;
+    --panel-2:#1c1912;
+    --gold:#c9a961;
+    --gold-bright:#f2d98d;
+    --gold-dim:#8a7644;
+    --text:#eae4d3;
+    --text-dim:#8c8578;
+    --line: rgba(201,169,97,0.25);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    overflow-x:hidden;
+    cursor:none;
+  }
+  @media (max-width:900px){ body{cursor:auto;} }
+
+  ::selection{background:var(--gold);color:#0a0908;}
+
+  /* film grain + scanlines */
+  .grain{
+    position:fixed;inset:0;pointer-events:none;z-index:9998;
+    opacity:0.05;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .scanlines{
+    position:fixed;inset:0;pointer-events:none;z-index:9997;
+    background:repeating-linear-gradient(180deg, rgba(0,0,0,0.15) 0px, rgba(0,0,0,0.15) 1px, transparent 1px, transparent 3px);
+    opacity:0.35;
+  }
+  .vignette{
+    position:fixed;inset:0;pointer-events:none;z-index:9996;
+    box-shadow: inset 0 0 200px 60px rgba(0,0,0,0.8);
+  }
+
+  /* custom viewfinder cursor */
+  .viewfinder{
+    position:fixed;top:0;left:0;width:44px;height:44px;
+    pointer-events:none;z-index:9999;
+    transform:translate(-50%,-50%);
+    transition:transform .12s ease, opacity .2s ease;
+    mix-blend-mode:difference;
+  }
+  .viewfinder svg{width:100%;height:100%;display:block;}
+  .viewfinder .corner{stroke:var(--gold-bright);stroke-width:1.5;fill:none;}
+  .viewfinder.click{transform:translate(-50%,-50%) scale(0.8);}
+  @media (max-width:900px){ .viewfinder{display:none;} }
+
+  /* nav */
+  header{
+    position:fixed;top:0;left:0;right:0;z-index:100;
+    display:flex;justify-content:space-between;align-items:center;
+    padding:22px 5vw;
+    backdrop-filter:blur(6px);
+    background:linear-gradient(180deg, rgba(10,9,8,0.85), transparent);
+  }
+  .logo{
+    font-family:'Orbitron',sans-serif;font-weight:700;font-size:15px;
+    letter-spacing:3px;color:var(--gold-bright);
+  }
+  .logo span{color:var(--text-dim);}
+  nav ul{list-style:none;display:flex;gap:34px;}
+  nav a{
+    color:var(--text-dim);text-decoration:none;font-size:12px;
+    letter-spacing:2px;text-transform:uppercase;font-family:'JetBrains Mono',monospace;
+    position:relative;transition:color .3s;
+  }
+  nav a::after{
+    content:'';position:absolute;left:0;bottom:-6px;width:0;height:1px;
+    background:var(--gold);transition:width .3s ease;
+  }
+  nav a:hover{color:var(--gold-bright);}
+  nav a:hover::after{width:100%;}
+  .menu-toggle{display:none;color:var(--gold);background:none;border:1px solid var(--line);padding:8px 12px;font-family:'JetBrains Mono',monospace;letter-spacing:2px;font-size:11px;}
+  @media (max-width:820px){
+    nav ul{position:fixed;top:0;right:-100%;height:100vh;width:70%;background:var(--panel);flex-direction:column;justify-content:center;align-items:flex-start;padding:0 40px;transition:right .4s ease;gap:28px;border-left:1px solid var(--line);}
+    nav ul.open{right:0;}
+    .menu-toggle{display:block;z-index:110;}
+  }
+
+  section{position:relative;padding:140px 5vw;max-width:1400px;margin:0 auto;}
+
+  /* HERO */
+  .hero{
+    min-height:100vh;display:flex;flex-direction:column;justify-content:center;
+    position:relative;padding-top:100px;
+  }
+  .hero-frame{
+    position:absolute;inset:60px;pointer-events:none;
+    border:1px solid transparent;
+  }
+  .hero-frame .corner{position:absolute;width:26px;height:26px;border:1.5px solid var(--gold);opacity:.6;}
+  .hero-frame .c1{top:0;left:0;border-right:none;border-bottom:none;}
+  .hero-frame .c2{top:0;right:0;border-left:none;border-bottom:none;}
+  .hero-frame .c3{bottom:0;left:0;border-right:none;border-top:none;}
+  .hero-frame .c4{bottom:0;right:0;border-left:none;border-top:none;}
+  @media (max-width:820px){ .hero-frame{inset:20px;} }
+
+  .rec-row{
+    display:flex;align-items:center;gap:10px;margin-bottom:26px;
+    font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:2px;color:var(--gold-dim);
+  }
+  .rec-dot{width:8px;height:8px;border-radius:50%;background:#c94b3f;animation:blink 1.4s infinite;}
+  @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:.15;} }
+  .timecode{color:var(--gold-bright);}
+
+  .hero h1{
+    font-family:'Orbitron',sans-serif;font-weight:900;
+    font-size:clamp(2.6rem, 8vw, 6.4rem);
+    line-height:0.98;letter-spacing:-1px;
+    color:var(--text);
+    text-transform:uppercase;
+  }
+  .hero h1 .gold-text{
+    background:linear-gradient(100deg, var(--gold-dim), var(--gold-bright) 40%, var(--gold) 70%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .hero .role{
+    margin-top:26px;font-family:'JetBrains Mono',monospace;
+    font-size:clamp(13px,2vw,16px);letter-spacing:4px;text-transform:uppercase;color:var(--text-dim);
+    display:flex;flex-wrap:wrap;gap:14px;align-items:center;
+  }
+  .hero .role .divider{color:var(--gold);}
+  .hero p.tagline{
+    margin-top:30px;max-width:560px;color:var(--text-dim);font-size:16px;line-height:1.7;font-weight:300;
+  }
+  .hero-cta{margin-top:46px;display:flex;gap:20px;flex-wrap:wrap;}
+  .btn{
+    font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:2px;text-transform:uppercase;
+    padding:16px 30px;text-decoration:none;position:relative;transition:.3s;display:inline-block;
+  }
+  .btn-primary{
+    color:#0a0908;background:linear-gradient(100deg,var(--gold-dim),var(--gold-bright));
+    box-shadow:0 0 0 rgba(242,217,141,0);
+  }
+  .btn-primary:hover{box-shadow:0 6px 30px rgba(242,217,141,0.25);transform:translateY(-2px);}
+  .btn-ghost{color:var(--gold-bright);border:1px solid var(--line);}
+  .btn-ghost:hover{background:rgba(201,169,97,0.08);border-color:var(--gold);}
+
+  .scroll-cue{
+    position:absolute;bottom:36px;left:5vw;display:flex;align-items:center;gap:12px;
+    font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:3px;color:var(--gold-dim);
+  }
+  .scroll-cue .bar{width:1px;height:40px;background:linear-gradient(var(--gold),transparent);animation:scrolldown 1.8s infinite;}
+  @keyframes scrolldown{0%{transform:scaleY(0);transform-origin:top;} 50%{transform:scaleY(1);transform-origin:top;} 51%{transform-origin:bottom;} 100%{transform:scaleY(0);transform-origin:bottom;}}
+
+  /* SECTION LABELS - timecode style */
+  .scene-label{
+    font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:3px;color:var(--gold);
+    display:flex;align-items:center;gap:14px;margin-bottom:14px;text-transform:uppercase;
+  }
+  .scene-label::before{content:'';width:34px;height:1px;background:var(--gold);}
+  .section-title{
+    font-family:'Orbitron',sans-serif;font-weight:700;font-size:clamp(1.8rem,4vw,3rem);
+    text-transform:uppercase;margin-bottom:60px;letter-spacing:1px;
+  }
+  .reveal{opacity:0;transform:translateY(40px);transition:opacity .9s ease, transform .9s ease;}
+  .reveal.in{opacity:1;transform:translateY(0);}
+
+  /* ABOUT */
+  .about-grid{display:grid;grid-template-columns:1.1fr 0.9fr;gap:80px;align-items:start;}
+  @media (max-width:900px){ .about-grid{grid-template-columns:1fr;gap:50px;} }
+  .about-text p{color:var(--text-dim);font-size:16px;line-height:1.9;font-weight:300;margin-bottom:20px;}
+  .about-text strong{color:var(--gold-bright);font-weight:500;}
+  .about-stats{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);}
+  .stat{background:var(--bg);padding:28px 20px;}
+  .stat .num{font-family:'Orbitron',sans-serif;font-size:2.4rem;color:var(--gold-bright);font-weight:700;}
+  .stat .label{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;margin-top:6px;}
+
+  .frame-box{
+    position:relative;border:1px solid var(--line);padding:34px;background:var(--panel);
+  }
+  .frame-box::before,.frame-box::after{
+    content:'';position:absolute;width:16px;height:16px;border:1.5px solid var(--gold);
+  }
+  .frame-box::before{top:-1px;left:-1px;border-right:none;border-bottom:none;}
+  .frame-box::after{bottom:-1px;right:-1px;border-left:none;border-top:none;}
+
+  /* SKILLS */
+  .skills-split{display:grid;grid-template-columns:1fr 1fr;gap:60px;}
+  @media (max-width:820px){ .skills-split{grid-template-columns:1fr;} }
+  .skill-col h3{
+    font-family:'Orbitron',sans-serif;font-size:1rem;letter-spacing:3px;color:var(--gold);
+    text-transform:uppercase;margin-bottom:30px;padding-bottom:14px;border-bottom:1px solid var(--line);
+  }
+  .skill-item{margin-bottom:24px;}
+  .skill-item .row{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-dim);margin-bottom:8px;letter-spacing:1px;}
+  .skill-item .row .val{color:var(--gold-bright);}
+  .meter{height:2px;background:var(--panel-2);width:100%;overflow:hidden;}
+  .meter-fill{height:100%;background:linear-gradient(90deg,var(--gold-dim),var(--gold-bright));width:0%;transition:width 1.6s cubic-bezier(.16,1,.3,1);}
+
+  /* EXPERIENCE timeline */
+  .timeline{position:relative;padding-left:40px;}
+  .timeline::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:1px;background:var(--line);}
+  .tl-item{position:relative;padding-bottom:60px;}
+  .tl-item:last-child{padding-bottom:0;}
+  .tl-item::before{
+    content:'';position:absolute;left:-45px;top:4px;width:10px;height:10px;border-radius:50%;
+    background:var(--bg);border:2px solid var(--gold);
+  }
+  .tl-time{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gold-dim);letter-spacing:2px;margin-bottom:8px;text-transform:uppercase;}
+  .tl-item h3{font-family:'Orbitron',sans-serif;font-size:1.2rem;color:var(--text);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;}
+  .tl-item .org{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--gold-bright);margin-bottom:14px;}
+  .tl-item p{color:var(--text-dim);font-size:14.5px;line-height:1.8;font-weight:300;max-width:640px;}
+
+  /* PORTFOLIO */
+  .portfolio-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;background:var(--line);}
+  @media (max-width:820px){ .portfolio-grid{grid-template-columns:repeat(2,1fr);} }
+  @media (max-width:560px){ .portfolio-grid{grid-template-columns:1fr;} }
+  .frame{
+    position:relative;aspect-ratio:4/5;background:var(--panel);overflow:hidden;cursor:pointer;
+  }
+  .frame .bg{
+    position:absolute;inset:0;
+    background:linear-gradient(135deg,var(--panel-2),var(--bg));
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .6s cubic-bezier(.16,1,.3,1);
+  }
+  .frame:hover .bg{transform:scale(1.08);}
+  .frame .fnum{font-family:'JetBrains Mono',monospace;color:var(--gold-dim);font-size:13px;letter-spacing:2px;}
+  .frame-overlay{
+    position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;padding:22px;
+    background:linear-gradient(180deg,transparent 40%, rgba(10,9,8,0.92));
+    opacity:0;transition:opacity .4s ease;
+  }
+  .frame:hover .frame-overlay{opacity:1;}
+  .frame-overlay h4{font-family:'Orbitron',sans-serif;font-size:0.95rem;color:var(--gold-bright);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
+  .frame-overlay span{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);letter-spacing:1px;}
+  .frame-corner{position:absolute;top:14px;left:14px;right:14px;bottom:14px;border:1px solid rgba(201,169,97,0);transition:border-color .4s;}
+  .frame:hover .frame-corner{border-color:rgba(201,169,97,0.4);}
+
+  /* CONTACT */
+  .clapper{
+    border:1px solid var(--line);background:var(--panel);padding:60px 50px;position:relative;
+  }
+  .clapper-top{
+    display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:11px;
+    color:var(--gold-dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:50px;
+    border-bottom:1px dashed var(--line);padding-bottom:20px;
+  }
+  .contact-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:60px;}
+  @media (max-width:820px){ .contact-grid{grid-template-columns:1fr;gap:40px;} }
+  .contact-grid h2{font-family:'Orbitron',sans-serif;font-size:clamp(1.8rem,4vw,2.8rem);text-transform:uppercase;line-height:1.2;margin-bottom:20px;}
+  .contact-grid h2 .gold-text{background:linear-gradient(100deg,var(--gold-dim),var(--gold-bright));-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .contact-grid > p{color:var(--text-dim);font-weight:300;line-height:1.8;max-width:460px;}
+  .contact-links{display:flex;flex-direction:column;gap:0;}
+  .contact-links a{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:18px 0;border-bottom:1px solid var(--line);text-decoration:none;
+    color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:1px;
+    transition:.3s;
+  }
+  .contact-links a:hover{color:var(--gold-bright);padding-left:10px;}
+  .contact-links a .lbl{color:var(--text-dim);text-transform:uppercase;font-size:11px;letter-spacing:2px;}
+
+  footer{
+    text-align:center;padding:40px 5vw;font-family:'JetBrains Mono',monospace;font-size:11px;
+    color:var(--gold-dim);letter-spacing:2px;border-top:1px solid var(--line);text-transform:uppercase;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important;transition:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<div class="grain"></div>
+<div class="scanlines"></div>
+<div class="vignette"></div>
+<div class="viewfinder" id="vf">
+  <svg viewBox="0 0 44 44">
+    <path class="corner" d="M2,12 L2,2 L12,2"/>
+    <path class="corner" d="M32,2 L42,2 L42,12"/>
+    <path class="corner" d="M42,32 L42,42 L32,42"/>
+    <path class="corner" d="M12,42 L2,42 L2,32"/>
+    <circle cx="22" cy="22" r="1.4" fill="var(--gold-bright)"/>
+  </svg>
+</div>
+
+<header>
+  <div class="logo">PHANTA<span>SIE</span></div>
+  <button class="menu-toggle" id="menuBtn">MENU</button>
+  <nav><ul id="navList">
+    <li><a href="#about">About</a></li>
+    <li><a href="#skills">Skills</a></li>
+    <li><a href="#experience">Experience</a></li>
+    <li><a href="#portfolio">Portfolio</a></li>
+    <li><a href="#contact">Contact</a></li>
+  </ul></nav>
+</header>
+
+<section class="hero" id="top">
+  <div class="hero-frame">
+    <div class="corner c1"></div><div class="corner c2"></div>
+    <div class="corner c3"></div><div class="corner c4"></div>
+  </div>
+  <div class="rec-row">
+    <div class="rec-dot"></div> REC <span class="timecode" id="timecode">00:00:00:00</span>
+  </div>
+  <h1>Frame &amp; <span class="gold-text">Function.</span></h1>
+  <div class="role">
+    <span>Cinematographer</span><span class="divider">◆</span><span>Web Developer</span><span class="divider">◆</span><span>Lagos, NG</span>
+  </div>
+  <p class="tagline">I shoot stories through a lens and build them through code — crafting cinematic visuals for brands and events, and engineering the digital experiences that carry them.</p>
+  <div class="hero-cta">
+    <a href="https://www.instagram.com/reel/DXkjdXNDH_c/?igsh=dGRpb3o5cWo3MGo0" class="btn btn-primary">View Reel</a>
+    <a href="wa.me/2347025115949" class="btn btn-ghost">Get In Touch</a>
+  </div>
+  <div class="scroll-cue"><div class="bar"></div> SCROLL</div>
+</section>
+
+<section id="about">
+  <div class="scene-label">Scene 01 — Profile</div>
+  <h2 class="section-title reveal">About</h2>
+  <div class="about-grid">
+    <div class="about-text reveal">
+      <p>I'm <strong>Phantasie</strong>, a cinematographer and front-end developer based in Lagos, Nigeria. My work sits at the intersection of two disciplines that are rarely combined — the visual instinct of a director of photography, and the technical precision of a developer.</p>
+      <p>On set, I compose frames, direct light, and cut footage into stories that move people — promos, events, and short-form content built for how audiences actually watch today. Behind the screen, I build the websites and interfaces that give that work a home, from marketplace platforms to portfolio experiences.</p>
+      <p>Every project I take on is treated the same way: <strong>frame it with intention, build it to last.</strong></p>
+      <div class="about-stats">
+        <div class="stat"><div class="num">50+</div><div class="label">Projects Delivered</div></div>
+        <div class="stat"><div class="num">4+</div><div class="label">Years Behind the Lens</div></div>
+        <div class="stat"><div class="num">2</div><div class="label">Disciplines Mastered</div></div>
+        <div class="stat"><div class="num">100%</div><div class="label">Frame-First Thinking</div></div>
+      </div>
+    </div>
+    <div class="frame-box reveal">
+      <p style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gold-dim);letter-spacing:2px;margin-bottom:18px;text-transform:uppercase;">Current Setup</p>
+      <p style="color:var(--text-dim);font-size:14px;line-height:2;font-weight:300;">
+        CAM — Mobile-first rig, upgrading to Sony FX3/FX30<br>
+        EDIT — CapCut, DaVinci Resolve<br>
+        STACK — React, HTML/CSS/JS, Node<br>
+        FOCUS — Colour, motion, clean UI<br>
+      </p>
+    </div>
+  </div>
+</section>
+
+<section id="skills">
+  <div class="scene-label">Scene 02 — Capabilities</div>
+  <h2 class="section-title reveal">Skills</h2>
+  <div class="skills-split">
+    <div class="skill-col reveal">
+      <h3>Behind the Camera</h3>
+      <div class="skill-item">
+        <div class="row"><span>Cinematography &amp; Framing</span><span class="val">95%</span></div>
+        <div class="meter"><div class="meter-fill" data-w="95"></div></div>
+      </div>
+      <div class="skill-item">
+        <div class="row"><span>Colour Grading</span><span class="val">88%</span></div>
+        <div class="meter"><div class="meter-fill" data-w="88"></div></div>
+      </div>
+      <div class="skill-item">
+        <div class="row"><span>Video Editing (CapCut / Resolve)</span><span class="val">92%</span></div>
+        <div class="meter"><div class="meter-fill" data-w="92"></div></div>
+      </div>
+      <div class="skill-item">
+        <div class="row"><span>Event &amp; Promo Direction</span><span class="val">90%</span></div>
+        <div class="meter"><div class="meter-fill" data-w="90"></div></div>
+      </div>
+    </div>
+    <div class="skill-col reveal">
+      <h3>Behind the Code</h3>
+      <div class="skill-item">
+        <div class="row"><span>HTML / CSS / JavaScript</span><span class="val">93%</span></div>
+        <div class="meter"><div class="meter-fill" data-w="93"></div></div>
+      </div>
+      <div class="skill-item">
+        <div class="row"><span>React &amp; Front-End Architecture</span><span class="val">85%</span></div>
+        <div class="meter"><div class="meter-fill" data-w="85"></div></div>
+      </div>
+      <div class="skill-item">
+        <div class="row"><span>Payments Integration (Paystack/Stripe)</span><span class="val">80%</span></div>
+        <div class="meter"><div class="meter-fill" data-w="80"></div></div>
+      </div>
+      <div class="skill-item">
+        <div class="row"><span>Responsive / Animated UI</span><span class="val">90%</span></div>
+        <div class="meter"><div class="meter-fill" data-w="90"></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="experience">
+  <div class="scene-label">Scene 03 — Timeline</div>
+  <h2 class="section-title reveal">Experience</h2>
+  <div class="timeline">
+    <div class="tl-item reveal">
+      <div class="tl-time">2024 — Present</div>
+      <h3>Freelance Cinematographer &amp; Web Developer</h3>
+      <div class="org">Self-Employed · Lagos, NG</div>
+      <p>Producing promotional videos, event coverage, and short-form content for brands and creators, while building and maintaining websites — including a cross-border marketplace platform connecting West Africa and the UK.</p>
+    </div>
+    <div class="tl-item reveal">
+      <div class="tl-time">2023 — 2024</div>
+      <h3>Content &amp; Video Producer</h3>
+      <div class="org">Independent Projects</div>
+      <p>Directed and edited campaign videos for community and church programs, handled voiceover direction, sound design, and delivered platform-optimised cuts for social media.</p>
+    </div>
+    <div class="tl-item reveal">
+      <div class="tl-time">2022 — 2023</div>
+      <h3>Front-End Development (Training &amp; Projects)</h3>
+      <div class="org">Self-Directed</div>
+      <p>Built interactive tools and forms, including data-driven web apps and map-based animations, sharpening a practical, ship-fast approach to front-end engineering.</p>
+    </div>
+  </div>
+</section>
+
+<section id="portfolio">
+  <div class="scene-label">Scene 04 — Selected Work</div>
+  <h2 class="section-title reveal">Portfolio</h2>
+  <div class="portfolio-grid reveal">
+    <div class="frame"><div class="bg" style="background-image:url('images/dj-rabbit-aura-session.jpeg');background-size:cover;background-position:center;"></div><div class="frame-corner"></div>
+      <div class="frame-overlay"><h4>DJ Rabbit's Aura Session</h4><span>Behind the Scenes · 2025</span></div></div>
+    <div class="frame"><div class="bg"><span class="fnum">F/02</span></div><div class="frame-corner"></div>
+      <div class="frame-overlay"><h4>Marketplace Platform</h4><span>Web Development · 2025</span></div></div>
+    <div class="frame"><div class="bg" style="background-image:url('images/dj-consequence-zero-gravity.jpeg');background-size:cover;background-position:center;"></div><div class="frame-corner"></div>
+      <div class="frame-overlay"><h4>DJ Consequence / Zero Gravity</h4><span>Event Coverage · 2025</span></div></div>
+    <div class="frame"><div class="bg"><span class="fnum">F/04</span></div><div class="frame-corner"></div>
+      <div class="frame-overlay"><h4>Portfolio Site Build</h4><span>Web Development · 2024</span></div></div>
+    <div class="frame"><div class="bg" style="background-image:url('images/black-merit-award.jpeg');background-size:cover;background-position:center;"></div><div class="frame-corner"></div>
+      <div class="frame-overlay"><h4>The Black Merit Award</h4><span>Event Coverage · 2025</span></div></div>
+    <div class="frame"><div class="bg"><span class="fnum">F/06</span></div><div class="frame-corner"></div>
+      <div class="frame-overlay"><h4>Route Animation Tool</h4><span>Web Development · 2024</span></div></div>
+  </div>
+</section>
+
+<section id="contact">
+  <div class="scene-label">Scene 05 — Contact</div>
+  <div class="clapper reveal">
+    <div class="clapper-top"><span>Phantasie / CV</span><span>Take 01 · Lagos, NG</span></div>
+    <div class="contact-grid">
+      <div>
+        <h2>Let's create<br>something <span class="gold-text">worth framing.</span></h2>
+        <p>Open to freelance shoots, brand promos, event coverage, and web development projects. Based in Lagos — available for remote and on-site work.</p>
+      </div>
+      <div class="contact-links">
+        <a href="mailto:oshodi_s@yahoo.com"><span class="lbl">Email</span> hello@phantasie.dev</a>
+        <a href="tel:+2347025115949"><span class="lbl">Phone</span> +234 000 000 0000</a>
+        <a href="https://www.instagram.com/phan_tasiee?igsh=YTUyMnZ0Nzd0dTY1&utm_source=qr"><span class="lbl">Instagram</span> @phan_tasiee</a>
+        <a href="#"><span class="lbl">LinkedIn</span> /in/phantasie</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>© 2026 Phantasie — Shot, Cut &amp; Coded in Lagos</footer>
+
+<script>
+  // custom cursor
+  const vf = document.getElementById('vf');
+  window.addEventListener('mousemove', e=>{
+    vf.style.left = e.clientX+'px';
+    vf.style.top = e.clientY+'px';
+  });
+  window.addEventListener('mousedown', ()=>vf.classList.add('click'));
+  window.addEventListener('mouseup', ()=>vf.classList.remove('click'));
+
+  // mobile menu
+  const menuBtn = document.getElementById('menuBtn');
+  const navList = document.getElementById('navList');
+  menuBtn.addEventListener('click', ()=>navList.classList.toggle('open'));
+  navList.querySelectorAll('a').forEach(a=>a.addEventListener('click', ()=>navList.classList.remove('open')));
+
+  // running timecode
+  let frame=0;
+  function pad(n){return n.toString().padStart(2,'0');}
+  setInterval(()=>{
+    frame++;
+    let f = frame % 24;
+    let totalSec = Math.floor(frame/24);
+    let s = totalSec % 60;
+    let m = Math.floor(totalSec/60) % 60;
+    let h = Math.floor(totalSec/3600);
+    document.getElementById('timecode').textContent = `${pad(h)}:${pad(m)}:${pad(s)}:${pad(f)}`;
+  }, 1000/24);
+
+  // scroll reveal
+  const revealEls = document.querySelectorAll('.reveal');
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){
+        entry.target.classList.add('in');
+        if(entry.target.querySelectorAll){
+          entry.target.querySelectorAll('.meter-fill').forEach(m=>{
+            m.style.width = m.dataset.w + '%';
+          });
+        }
+        io.unobserve(entry.target);
+      }
+    });
+  }, {threshold:0.15});
+  revealEls.forEach(el=>io.observe(el));
+
+  // also trigger meters directly in skills section (in case not wrapped)
+  document.querySelectorAll('.skill-col.reveal').forEach(el=>io.observe(el));
+</script>
+
+</body>
+</html>
